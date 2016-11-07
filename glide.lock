@@ -1,0 +1,41 @@
+hash: 9649895a3315b1d32738741dd9e18113e2deebb6108d3d1cc7f630e92cb3e8f8
+updated: 2016-11-07T15:20:20.235416876+01:00
+imports:
+- name: github.com/fatih/structs
+  version: dc3312cb1a4513a366c4c9e622ad55c32df12ed3
+- name: github.com/fcantournet/flexvolume
+  version: 448ec18d81fe6ab9f86b91c4de14f1cacb01e1b7
+- name: github.com/hashicorp/errwrap
+  version: 7554cd9344cec97297fa6649b055a8c98c2a1e55
+- name: github.com/hashicorp/go-cleanhttp
+  version: ad28ea4487f05916463e2423a55166280e8254b5
+- name: github.com/hashicorp/go-multierror
+  version: 8484912a3b9987857bac52e0c5fec2b95f419628
+- name: github.com/hashicorp/go-rootcerts
+  version: 6bb64b370b90e7ef1fa532be9e591a81c3493e00
+- name: github.com/hashicorp/hcl
+  version: f74cf8281543a0797d7b4ab7d88e76e7ba125308
+  subpackages:
+  - hcl/ast
+  - hcl/parser
+  - hcl/scanner
+  - hcl/strconv
+  - hcl/token
+  - json/parser
+  - json/scanner
+  - json/token
+- name: github.com/hashicorp/vault
+  version: 22619b6786724c8eca5340a63395bf3058e1e3f7
+  subpackages:
+  - api
+  - helper/compressutil
+  - helper/jsonutil
+- name: github.com/mitchellh/go-homedir
+  version: 756f7b183b7ab78acdbbee5c7f392838ed459dda
+- name: github.com/mitchellh/mapstructure
+  version: f3009df150dadf309fdee4a54ed65c124afad715
+- name: github.com/sethgrid/pester
+  version: 2a102734c18c43c74fd0664e06cd414cf9602b93
+- name: github.com/urfave/cli
+  version: d86a009f5e13f83df65d0d6cee9a2e3f1445f0da
+testImports: []

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -103,7 +104,7 @@ func main() {
 }
 
 // Get a wrapped token from Vault scoped with given policy
-func getTokenForPolicy(policies string) (string, error) {
+func getTokenForPolicy(policies string) (*vaultapi.SecretWrapInfo, error) {
 
 	os.Setenv(vaultapi.EnvVaultWrapTTL, vaultTokenWrappTTL)
 
@@ -115,7 +116,7 @@ func getTokenForPolicy(policies string) (string, error) {
 	}
 	client, err := createVaultClient(&cvci)
 	if err != nil {
-		return "", fmt.Errorf("Couldn't create vault client: %v", err)
+		return nil, fmt.Errorf("Couldn't create vault client: %v", err)
 	}
 
 	req := vaultapi.TokenCreateRequest{
@@ -124,21 +125,42 @@ func getTokenForPolicy(policies string) (string, error) {
 
 	wrapped, err := client.Auth().Token().Create(&req)
 	if err != nil {
-		return "", fmt.Errorf("Couldn't create scoped token for policy %v : %v", req.Policies, err)
+		return nil, fmt.Errorf("Couldn't create scoped token for policy %v : %v", req.Policies, err)
 	}
-
-	return wrapped.WrapInfo.Token, nil
+	return wrapped.WrapInfo, nil
 }
 
-func insertWrappedTokenInVolume(token, dir string) error {
+func insertWrappedTokenInVolume(wrapped *vaultapi.SecretWrapInfo, dir string) error {
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to mkdir %v: %v", dir, err)
 	}
 	if err = mountVaultTmpFsAt(dir); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path.Join(dir, "VAULT_TOKEN"), []byte(strings.TrimSpace(token)), 0644)
+
+	tokenpath := path.Join(dir, "VAULT_TOKEN")
+	fulljsonpath := path.Join(dir, "vault.json")
+	fulljson, err := json.Marshal(wrapped)
+	if err != nil {
+		return fmt.Errorf("Couldn't marshal vault response: %v", err)
+	}
+
+	err = ioutil.WriteFile(tokenpath, []byte(strings.TrimSpace(wrapped.Token)), 0644)
+	if err != nil {
+		return err
+	}
+	err = os.Chmod(tokenpath, 0644)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(fulljsonpath, fulljson, 0644)
+	if err != nil {
+		return err
+	}
+	err = os.Chmod(fulljsonpath, 0644)
+	return err
 }
 
 // mountVaultTmpFsAt mounts a tmpfs filesystem at the given path

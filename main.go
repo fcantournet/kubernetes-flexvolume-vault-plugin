@@ -139,8 +139,8 @@ func insertWrappedTokenInVolume(wrapped *vaultapi.SecretWrapInfo, dir string) er
 		return err
 	}
 
-	tokenpath := path.Join(dir, "VAULT_TOKEN")
-	fulljsonpath := path.Join(dir, "vault.json")
+	tokenpath := path.Join(dir, "vault-token")
+	fulljsonpath := path.Join(dir, "vault-token.json")
 	fulljson, err := json.Marshal(wrapped)
 	if err != nil {
 		return fmt.Errorf("Couldn't marshal vault response: %v", err)

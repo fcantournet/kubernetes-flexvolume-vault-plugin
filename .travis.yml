@@ -1,0 +1,12 @@
+language: go
+sudo: false
+go:
+- 1.7.3
+deploy:
+  provider: releases
+  api_key:
+    secure: ieNk3yOOmJfqNddauX91tNiVTa9orn2xg4YVqToLWh3m8iohQSpEQflhbg8ALwse3m5cQuMtUWy6EWRJ32ciDQ/dEdbag8q8pENcq80aWEsqpGYkuCAqC4eTI9b9euQ6RI9U5ssYJUki1ZEfNvr/8YcNFQ4ODaSXCH6nFub1N5CEPCW4GKfdZRBesf5JISfxZntPZ4zKgMv1RtkRQY4bkGBIOCgLQ6C8WtlaSIq6nBvCKWYCJFgCLgHn6UMHeP7PU4FlnmU58xNwyfJoywCtwrKzOAtWP2VRAPBcXI6k0WyWE0hbDAJ28Uwjy22Er12mPPnrjtMHjD9GyW1/N+KyeZzkZ30uA8xMMWc2kU7pHbMlmRWRxyDAyNRCA4HiOfRhRz2BGV4G6lHoScCZ1bva2myaniupkO7d2gcUamQVmgGKdqmqaEAJN/NoenJq/39RX9TkxNZwaPgHmqukY1q2bjXcyGYF4UXPHoPNzv+MmA4Y7S415RNx5dUD9ZmLvUiItHoM/tVV7U8nD9HquMYFG4xrTmytmCHby/LMtba2aiiUdZtldL1Up9RpBWnRosjcfj4x4BGGAI5lByQF6GOy1EOYM8bOr6xI2WiOgFPXhb03oLIqxw2gzzvCRl0C/evQIEm6G8Wq0HYjHfZiW5hQLkf33gFWCz3urh2KSOnapok=
+  file: vaulttmpfs
+  on:
+    repo: fcantournet/kubernetes-flexvolume-vault-plugin
+    tags: true

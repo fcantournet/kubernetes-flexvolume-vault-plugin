@@ -24,8 +24,9 @@ type vaultSecretFlexVolume struct {
 	Address    string `default:"https://vault.service:8200"`
 	ServerName string `default:"vault.service"`
 
-	TokenPath     string `default:"/etc/kubernetes/vaulttoken"`
-	TokenWrappTTL string `default:"5m"`
+	GeneratorTokenPath string `default:"/etc/kubernetes/vaulttoken"`
+	TokenWrappTTL      string `default:"5m"`
+	TokenFilename      string `default:"vault-token"`
 }
 
 // VaultTmpfsOptions is the struct that should be unmarshaled from the json send by the kubelet
@@ -54,8 +55,8 @@ func (v vaultSecretFlexVolume) Detach(arg string) flexvolume.Response {
 	return flexvolume.Succeed()
 }
 
-// Mount create the tmpfs volume and mounts it @ path
-func (v vaultSecretFlexVolume) Mount(path string, dev string, opts interface{}) flexvolume.Response {
+// Mount create the tmpfs volume and mounts it @ dir
+func (v vaultSecretFlexVolume) Mount(dir string, dev string, opts interface{}) flexvolume.Response {
 
 	opt := opts.(*VaultTmpfsOptions) // casting because golang sucks
 
@@ -68,7 +69,7 @@ func (v vaultSecretFlexVolume) Mount(path string, dev string, opts interface{}) 
 		return flexvolume.Fail(fmt.Sprintf("Couldn't obtain wrapped token (for policies %v): %v", opt.Policies, err))
 	}
 
-	err = insertWrappedTokenInVolume(wrappedToken, path)
+	err = insertWrappedTokenInVolume(wrappedToken, dir, v.TokenFilename)
 	if err != nil {
 		return flexvolume.Fail(fmt.Sprintf("Couldn't create secret volume: %v", err))
 	}
@@ -103,7 +104,7 @@ func (v vaultSecretFlexVolume) getTokenForPolicy(policies []string) (*vaultapi.S
 	return wrapped.WrapInfo, nil
 }
 
-func insertWrappedTokenInVolume(wrapped *vaultapi.SecretWrapInfo, dir string) error {
+func insertWrappedTokenInVolume(wrapped *vaultapi.SecretWrapInfo, dir string, tokenfilename string) error {
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		return fmt.Errorf("Failed to mkdir %v: %v", dir, err)
@@ -112,8 +113,8 @@ func insertWrappedTokenInVolume(wrapped *vaultapi.SecretWrapInfo, dir string) er
 		return err
 	}
 
-	tokenpath := path.Join(dir, "vault-token")
-	fulljsonpath := path.Join(dir, "vault-token.json")
+	tokenpath := path.Join(dir, tokenfilename)
+	fulljsonpath := path.Join(dir, tokenfilename, ".json")
 	fulljson, err := json.Marshal(wrapped)
 	if err != nil {
 		return fmt.Errorf("Couldn't marshal vault response: %v", err)
@@ -162,9 +163,9 @@ func (v vaultSecretFlexVolume) createVaultClient() (*vaultapi.Client, error) {
 	vaultapi.DefaultWrappingTTL = v.TokenWrappTTL
 
 	// Get token with token generator policy
-	token, err := tokenFromFile(v.TokenPath)
+	token, err := tokenFromFile(v.GeneratorTokenPath)
 	if err != nil {
-		return nil, fmt.Errorf("Couldn't read generator token from file %v: %v", v.TokenPath, err)
+		return nil, fmt.Errorf("Couldn't read generator token from file %v: %v", v.GeneratorTokenPath, err)
 	}
 
 	// Generate the default config

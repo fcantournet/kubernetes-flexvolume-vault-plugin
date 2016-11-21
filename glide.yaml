@@ -4,4 +4,5 @@ import:
   version: ^0.6.2
   subpackages:
   - api
-- package: github.com/fcantournet/flexvolume
+- package: github.com/kelseyhightower/envconfig
+  version: ^1.2.0

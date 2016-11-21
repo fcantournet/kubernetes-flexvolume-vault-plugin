@@ -12,115 +12,88 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/fcantournet/flexvolume"
+	"github.com/fcantournet/kubernetes-flexvolume-vault-plugin/flexvolume"
 	cleanhttp "github.com/hashicorp/go-cleanhttp"
 	vaultapi "github.com/hashicorp/vault/api"
-	"github.com/urfave/cli"
+	"github.com/kelseyhightower/envconfig"
 )
 
-// vaultTokenPath point to a file containing a token with a policy
-// capable of creating token. The path cannot be made variable.
-const vaultTokenPath = "/etc/kubernetes/vaulttoken"
-const vaultTokenRenewPeriod = 720
-const vaultTokenWrappTTL = "2m"
-const vaultPolicyName = "cloudwatt/policy"
+// vaultSecretFlexVolume implement the flexvolume interface
+// the struct tags are for envconfig
+type vaultSecretFlexVolume struct {
+	Address    string `default:"https://vault.service:8200"`
+	ServerName string `default:"vault.service"`
 
-type vaultSecretFlexVolume struct{}
+	TokenPath     string `default:"/etc/kubernetes/vaulttoken"`
+	TokenWrappTTL string `default:"5m"`
+}
+
+// VaultTmpfsOptions is the struct that should be unmarshaled from the json send by the kubelet
+// Corresponds to the arbitrary payload that we can specify to the kubelet to send
+// in the yaml defining the pod/deployment
+type VaultTmpfsOptions struct {
+	Policies []string `json:"vault/policies"`
+}
+
+func (v vaultSecretFlexVolume) NewOptions() interface{} {
+	return &VaultTmpfsOptions{}
+}
 
 // Init is a no-op here but necessary to satisfy the interface
 func (v vaultSecretFlexVolume) Init() flexvolume.Response {
-	return flexvolume.Response{Status: flexvolume.StatusSuccess}
+	return flexvolume.Succeed()
 }
 
 // Attach is not necessary for this plugin but need to be implemented to satisfy the interface
-func (v vaultSecretFlexVolume) Attach(arg map[string]string) flexvolume.Response {
-	return flexvolume.Response{Status: flexvolume.StatusSuccess}
+func (v vaultSecretFlexVolume) Attach(arg interface{}) flexvolume.Response {
+	return flexvolume.Succeed()
 }
 
 // Detach is not necessary for this plugin but need to be implemented to satisfy the interface
 func (v vaultSecretFlexVolume) Detach(arg string) flexvolume.Response {
-	return flexvolume.Response{Status: flexvolume.StatusSuccess}
+	return flexvolume.Succeed()
 }
 
 // Mount create the tmpfs volume and mounts it @ path
-func (v vaultSecretFlexVolume) Mount(path string, dev string, opts map[string]string) flexvolume.Response {
+func (v vaultSecretFlexVolume) Mount(path string, dev string, opts interface{}) flexvolume.Response {
 
-	policies, ok := opts[vaultPolicyName]
-	if !ok {
-		return flexvolume.Response{
-			Status:  flexvolume.StatusFailure,
-			Message: fmt.Sprintf("Missing policies %v in %v:", vaultPolicyName, opts),
-		}
+	opt := opts.(*VaultTmpfsOptions) // casting because golang sucks
+
+	if len(opt.Policies) == 0 {
+		return flexvolume.Fail(fmt.Sprintf("Missing policies under %v in %v:", "vault/policies", opts))
 	}
 
-	wrappedToken, err := getTokenForPolicy(policies)
+	wrappedToken, err := v.getTokenForPolicy(opt.Policies)
 	if err != nil {
-		return flexvolume.Response{
-			Status:  flexvolume.StatusFailure,
-			Message: fmt.Sprintf("Couldn't obtain wrapped token (for policies %v): %v", policies, err),
-		}
+		return flexvolume.Fail(fmt.Sprintf("Couldn't obtain wrapped token (for policies %v): %v", opt.Policies, err))
 	}
 
 	err = insertWrappedTokenInVolume(wrappedToken, path)
 	if err != nil {
-		return flexvolume.Response{
-			Status:  flexvolume.StatusFailure,
-			Message: fmt.Sprintf("Couldn't create secret volume: %v", err),
-		}
+		return flexvolume.Fail(fmt.Sprintf("Couldn't create secret volume: %v", err))
 	}
-	return flexvolume.Response{
-		Status:  flexvolume.StatusSuccess,
-		Message: "",
-	}
+	return flexvolume.Succeed()
 }
 
 // Unmount unmounts the volume ( and delete the tmpfs ?)
 func (v vaultSecretFlexVolume) Unmount(dir string) flexvolume.Response {
 	err := syscall.Unmount(dir, 0)
 	if err != nil {
-		return flexvolume.Response{
-			Status:  flexvolume.StatusFailure,
-			Message: fmt.Sprintf("Failed to Unmount %v: %v", dir, err),
-		}
+		return flexvolume.Fail(fmt.Sprintf("Failed to Unmount %v: %v", dir, err))
 	}
-	return flexvolume.Response{
-		Status:  flexvolume.StatusSuccess,
-		Message: fmt.Sprintf("Unmounted: %v", dir),
-	}
-}
-
-// CreateVaultClientInput is used as input to the CreateVaultClient function.
-type CreateVaultClientInput struct {
-	Address          string
-	TokenPath        string
-	TokenRenewPeriod int // in seconds
-	ServerName       string
-}
-
-func main() {
-	app := cli.NewApp()
-	app.Commands = flexvolume.Commands(vaultSecretFlexVolume{})
-	app.Run(os.Args)
+	return flexvolume.Succeed(fmt.Sprintf("Unmounted: %v", dir))
 }
 
 // Get a wrapped token from Vault scoped with given policy
-func getTokenForPolicy(policies string) (*vaultapi.SecretWrapInfo, error) {
+func (v vaultSecretFlexVolume) getTokenForPolicy(policies []string) (*vaultapi.SecretWrapInfo, error) {
 
-	os.Setenv(vaultapi.EnvVaultWrapTTL, vaultTokenWrappTTL)
-
-	cvci := CreateVaultClientInput{
-		Address:          "https://vault.service:8200",
-		ServerName:       "vault.service",
-		TokenPath:        vaultTokenPath,
-		TokenRenewPeriod: vaultTokenRenewPeriod,
-	}
-	client, err := createVaultClient(&cvci)
+	client, err := v.createVaultClient()
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't create vault client: %v", err)
 	}
 
 	req := vaultapi.TokenCreateRequest{
-		Policies: strings.Split(strings.Replace(policies, " ", "", -1), ","),
+		Policies: policies,
 	}
 
 	wrapped, err := client.Auth().Token().Create(&req)
@@ -183,20 +156,24 @@ func tokenFromFile(path string) (string, error) {
 	return string(data), nil
 }
 
-func createVaultClient(i *CreateVaultClientInput) (*vaultapi.Client, error) {
+func (v vaultSecretFlexVolume) createVaultClient() (*vaultapi.Client, error) {
+
+	// this is a global var in vault pkg
+	vaultapi.DefaultWrappingTTL = v.TokenWrappTTL
+
 	// Get token with token generator policy
-	token, err := tokenFromFile(i.TokenPath)
+	token, err := tokenFromFile(v.TokenPath)
 	if err != nil {
-		return nil, fmt.Errorf("Couldn't read generator token from file %v: %v", vaultTokenPath, err)
+		return nil, fmt.Errorf("Couldn't read generator token from file %v: %v", v.TokenPath, err)
 	}
 
 	// Generate the default config
 	vaultConfig := vaultapi.DefaultConfig()
 
-	if i.Address == "" {
+	if v.Address == "" {
 		return nil, fmt.Errorf("missing vault address")
 	}
-	vaultConfig.Address = i.Address
+	vaultConfig.Address = v.Address
 
 	var tlsConfig tls.Config
 	tlsConfig.RootCAs, err = x509.SystemCertPool()
@@ -206,10 +183,10 @@ func createVaultClient(i *CreateVaultClientInput) (*vaultapi.Client, error) {
 	tlsConfig.BuildNameToCertificate()
 
 	// SSL verification
-	if i.ServerName == "" {
+	if v.ServerName == "" {
 		return nil, fmt.Errorf("missing vault TLS server host name")
 	}
-	tlsConfig.ServerName = i.ServerName
+	tlsConfig.ServerName = v.ServerName
 	tlsConfig.InsecureSkipVerify = false
 
 	transport := cleanhttp.DefaultTransport()
@@ -225,7 +202,18 @@ func createVaultClient(i *CreateVaultClientInput) (*vaultapi.Client, error) {
 	}
 
 	client.SetToken(token)
-	client.Auth().Token().RenewSelf(i.TokenRenewPeriod)
+	// The generator token is periodic so we can set the increment to 0
+	// and it will default to the period.
+	client.Auth().Token().RenewSelf(0)
 
 	return client, nil
+}
+
+func main() {
+	var vf vaultSecretFlexVolume
+	err := envconfig.Process("VAULTTMPFS", &vf)
+	if err != nil {
+		flexvolume.Fail(fmt.Sprintf("Failed to init configuration: %v", err))
+	}
+	flexvolume.RunPlugin(vf)
 }

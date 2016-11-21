@@ -42,17 +42,17 @@ func (v vaultSecretFlexVolume) NewOptions() interface{} {
 
 // Init is a no-op here but necessary to satisfy the interface
 func (v vaultSecretFlexVolume) Init() flexvolume.Response {
-	return flexvolume.Succeed()
+	return flexvolume.Succeed("")
 }
 
 // Attach is not necessary for this plugin but need to be implemented to satisfy the interface
 func (v vaultSecretFlexVolume) Attach(arg interface{}) flexvolume.Response {
-	return flexvolume.Succeed()
+	return flexvolume.Succeed("")
 }
 
 // Detach is not necessary for this plugin but need to be implemented to satisfy the interface
 func (v vaultSecretFlexVolume) Detach(arg string) flexvolume.Response {
-	return flexvolume.Succeed()
+	return flexvolume.Succeed("")
 }
 
 // Mount create the tmpfs volume and mounts it @ dir
@@ -73,7 +73,7 @@ func (v vaultSecretFlexVolume) Mount(dir string, dev string, opts interface{}) f
 	if err != nil {
 		return flexvolume.Fail(fmt.Sprintf("Couldn't create secret volume: %v", err))
 	}
-	return flexvolume.Succeed()
+	return flexvolume.Succeed("")
 }
 
 // Unmount unmounts the volume ( and delete the tmpfs ?)

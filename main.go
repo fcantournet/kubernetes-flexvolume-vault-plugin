@@ -12,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 
+	"os/exec"
+
 	"github.com/fcantournet/kubernetes-flexvolume-vault-plugin/flexvolume"
 	cleanhttp "github.com/hashicorp/go-cleanhttp"
 	vaultapi "github.com/hashicorp/vault/api"
@@ -58,6 +60,15 @@ func (v vaultSecretFlexVolume) Detach(arg string) flexvolume.Response {
 // Mount create the tmpfs volume and mounts it @ dir
 func (v vaultSecretFlexVolume) Mount(dir string, dev string, opts interface{}) flexvolume.Response {
 
+	// Short circuit if already mounted.
+	mounted, err := ismounted(dir)
+	if err != nil {
+		return flexvolume.Fail(fmt.Sprintf("Couldn't determine is %v already mounted: %v", dir, err))
+	}
+	if mounted {
+		return flexvolume.Succeed("Already mounted")
+	}
+
 	opt := opts.(*VaultTmpfsOptions) // casting because golang sucks
 
 	if len(opt.Policies) == 0 {
@@ -71,6 +82,10 @@ func (v vaultSecretFlexVolume) Mount(dir string, dev string, opts interface{}) f
 
 	err = insertWrappedTokenInVolume(wrappedToken, dir, v.TokenFilename)
 	if err != nil {
+		err2 := cleanup(dir)
+		if err2 != nil {
+			return flexvolume.Fail(fmt.Sprintf("Couldn't create secret volume: %v (failed cleanup: %v)", err, err2))
+		}
 		return flexvolume.Fail(fmt.Sprintf("Couldn't create secret volume: %v", err))
 	}
 	return flexvolume.Succeed("")
@@ -78,9 +93,9 @@ func (v vaultSecretFlexVolume) Mount(dir string, dev string, opts interface{}) f
 
 // Unmount unmounts the volume ( and delete the tmpfs ?)
 func (v vaultSecretFlexVolume) Unmount(dir string) flexvolume.Response {
-	err := syscall.Unmount(dir, 0)
+	err := cleanup(dir)
 	if err != nil {
-		return flexvolume.Fail(fmt.Sprintf("Failed to Unmount %v: %v", dir, err))
+		return flexvolume.Fail(fmt.Sprintf("Failed to Unmount: %v", err))
 	}
 	return flexvolume.Succeed(fmt.Sprintf("Unmounted: %v", dir))
 }
@@ -135,6 +150,46 @@ func insertWrappedTokenInVolume(wrapped *vaultapi.SecretWrapInfo, dir string, to
 	}
 	err = os.Chmod(fulljsonpath, 0644)
 	return err
+}
+
+// TODO: when findmnt is in 2.27+ use json output instead !
+func ismounted(dir string) (bool, error) {
+
+	out, err := exec.Command("findmnt", "-n", "-o", "TARGET", "--raw", dir).CombinedOutput()
+	if err == nil {
+		return true, nil
+	}
+	if len(out) != 0 { // actual error
+		return false, fmt.Errorf("Failed to run findmnt: %v", err)
+	}
+	if exiterr, ok := err.(*exec.ExitError); ok {
+		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+			if status == 1 {
+				return false, nil
+			}
+		}
+	}
+	// TODO: we shouldn't be here findmnt fucked up and didn't output anything.
+	return false, fmt.Errorf("unhandled error from findmnt: %v", err)
+}
+
+func cleanup(dir string) error {
+	mounted, err := ismounted(dir)
+	if err != nil {
+		return fmt.Errorf("can't determine if %v is mounted: %v", dir, err)
+	}
+	if mounted {
+		err := syscall.Unmount(dir, 0)
+		if err != nil {
+			return fmt.Errorf("Failed to Unmount %v: %v", dir, err)
+		}
+	}
+	// Good Guy RemoveAll does nothing is path doesn't exist and returns nil error :)
+	err = os.RemoveAll(dir)
+	if err != nil {
+		return fmt.Errorf("Failed to remove the directory %v: %v", dir, err)
+	}
+	return nil
 }
 
 // mountVaultTmpFsAt mounts a tmpfs filesystem at the given path

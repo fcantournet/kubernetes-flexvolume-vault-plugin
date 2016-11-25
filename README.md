@@ -31,12 +31,11 @@ We therefore use environment variables. The process inherits all the environment
 The plugin supports some the standard `vault` environment variables [as defined here](https://www.vaultproject.io/docs/commands/environment.html) (it calls `config.ReadEnvironment()`)
 This means that all the defaults for these are set by Vault and the default value specified in the table below are subject to being FALSE
  (althought you should probably never use default values)
-
- It doesn't respect the `VAULT_CACERT` and `VAULT_CAPATH` because it loads the system's CAs and I can't find a way to do both. [cf this vault issue](https://github.com/hashicorp/vault/issues/2126)
+Vault loads system's CAs by default, but you can specifiy a custom CA certificate with `VAULT_CACERT` or `VAULT_CAPATH`.
 
 Additionally we have variables to configure settings external to vault. These are prefixed with `VAULTTMPFS_` so as to not conflict with anything else.
 
-Table of supported configuration variables :
+(non-exhaustive) Table of supported configuration variables :
 
 | Environment Variable              | default                    | Description                                                                                                                                   |
 |-----------------------------------|----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|

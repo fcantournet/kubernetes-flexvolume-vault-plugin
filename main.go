@@ -2,11 +2,10 @@ package main
 
 import (
 	"bytes"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -15,20 +14,20 @@ import (
 	"syscall"
 
 	"github.com/fcantournet/kubernetes-flexvolume-vault-plugin/flexvolume"
-	cleanhttp "github.com/hashicorp/go-cleanhttp"
 	vaultapi "github.com/hashicorp/vault/api"
-	"github.com/kelseyhightower/envconfig"
 )
+
+const envGeneratorTokenPath = "VAULTTMPFS_GENERATOR_TOKEN_PATH"
+const envTokenFileName = "VAULTTMPFS_TOKEN_FILENAME"
+
+const defaultTokenFilename = "vault-token"
+const defaultGeneratorTokenPath = "/etc/kubernetes/vaulttoken"
 
 // vaultSecretFlexVolume implement the flexvolume interface
 // the struct tags are for envconfig
 type vaultSecretFlexVolume struct {
-	Address    string `default:"https://vault.service:8200"`
-	ServerName string `default:"vault.service"`
-
-	GeneratorTokenPath string `default:"/etc/kubernetes/vaulttoken"`
-	TokenWrappTTL      string `default:"5m"`
-	TokenFilename      string `default:"vault-token"`
+	GeneratorTokenPath string
+	TokenFilename      string
 }
 
 // VaultTmpfsOptions is the struct that should be unmarshaled from the json send by the kubelet
@@ -231,9 +230,6 @@ func tokenFromFile(path string) (string, error) {
 
 func (v vaultSecretFlexVolume) createVaultClient() (*vaultapi.Client, error) {
 
-	// this is a global var in vault pkg
-	vaultapi.DefaultWrappingTTL = v.TokenWrappTTL
-
 	// Get token with token generator policy
 	token, err := tokenFromFile(v.GeneratorTokenPath)
 	if err != nil {
@@ -242,31 +238,15 @@ func (v vaultSecretFlexVolume) createVaultClient() (*vaultapi.Client, error) {
 
 	// Generate the default config
 	vaultConfig := vaultapi.DefaultConfig()
-
-	if v.Address == "" {
-		return nil, fmt.Errorf("missing vault address")
+	if err = vaultConfig.ReadEnvironment(); err != nil {
+		return nil, fmt.Errorf("Failed to get Vault config from env: %v", err)
 	}
-	vaultConfig.Address = v.Address
 
-	var tlsConfig tls.Config
-	tlsConfig.RootCAs, err = x509.SystemCertPool()
+	// By default this added the system's CAs
+	err = vaultConfig.ConfigureTLS(&vaultapi.TLSConfig{Insecure: false})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get system CAs: %v", err)
+		log.Fatalf("Failed to configureTLS: %v", err)
 	}
-	tlsConfig.BuildNameToCertificate()
-
-	// SSL verification
-	if v.ServerName == "" {
-		return nil, fmt.Errorf("missing vault TLS server host name")
-	}
-	tlsConfig.ServerName = v.ServerName
-	tlsConfig.InsecureSkipVerify = false
-
-	transport := cleanhttp.DefaultTransport()
-	transport.TLSClientConfig = &tlsConfig
-
-	// Setup the new transport
-	vaultConfig.HttpClient.Transport = transport
 
 	// Create the client
 	client, err := vaultapi.NewClient(vaultConfig)
@@ -283,10 +263,17 @@ func (v vaultSecretFlexVolume) createVaultClient() (*vaultapi.Client, error) {
 }
 
 func main() {
-	var vf vaultSecretFlexVolume
-	err := envconfig.Process("VAULTTMPFS", &vf)
-	if err != nil {
-		flexvolume.Fail(fmt.Sprintf("Failed to init configuration: %v", err))
+	vf := vaultSecretFlexVolume{
+		GeneratorTokenPath: defaultGeneratorTokenPath,
+		TokenFilename:      defaultTokenFilename,
 	}
+
+	if v, ok := os.LookupEnv(envGeneratorTokenPath); ok {
+		vf.GeneratorTokenPath = v
+	}
+	if v, ok := os.LookupEnv(envTokenFileName); ok {
+		vf.TokenFilename = v
+	}
+
 	flexvolume.RunPlugin(vf)
 }

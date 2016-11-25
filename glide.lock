@@ -1,5 +1,5 @@
-hash: 501fb2aa90ea04818cd85c9339ae26892af91cc6cac53fe0a6d1d9a3db88a7fa
-updated: 2016-11-21T14:48:04.393561062+01:00
+hash: 739846da66fe5bc3bf80ac1556ae223c1a5b858b8c93d8937f06a0f210208f7d
+updated: 2016-11-25T10:52:37.703621264+01:00
 imports:
 - name: github.com/fatih/structs
   version: dc3312cb1a4513a366c4c9e622ad55c32df12ed3
@@ -28,8 +28,6 @@ imports:
   - api
   - helper/compressutil
   - helper/jsonutil
-- name: github.com/kelseyhightower/envconfig
-  version: 9aca109c9aec4633fced9717c4a09ecab3d33111
 - name: github.com/mitchellh/go-homedir
   version: 756f7b183b7ab78acdbbee5c7f392838ed459dda
 - name: github.com/mitchellh/mapstructure

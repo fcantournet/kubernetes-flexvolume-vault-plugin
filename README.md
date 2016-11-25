@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/fcantournet/kubernetes-flexvolume-vault-plugin.svg?branch=master)](https://travis-ci.org/fcantournet/kubernetes-flexvolume-vault-plugin)
+
 # What is this ?
 
 This project is an implementation of the flexvolume kubernetes plugin to inject a scoped vault token inside pods at startup so they can get their secrets.

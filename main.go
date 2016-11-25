@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
+	"regexp"
 	"strings"
 	"syscall"
-
-	"os/exec"
 
 	"github.com/fcantournet/kubernetes-flexvolume-vault-plugin/flexvolume"
 	cleanhttp "github.com/hashicorp/go-cleanhttp"
@@ -75,7 +75,14 @@ func (v vaultSecretFlexVolume) Mount(dir string, dev string, opts interface{}) f
 		return flexvolume.Fail(fmt.Sprintf("Missing policies under %v in %v:", "vault/policies", opts))
 	}
 
-	wrappedToken, err := v.getTokenForPolicy(opt.Policies)
+
+	poduidreg := regexp.MustCompile("[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{8}")
+	poduid := poduidreg.FindString(dir)
+	if poduid == "" {
+		return flexvolume.Fail(fmt.Sprintf("Couldn't extract poduid from path %v", dir))
+	}
+
+	wrappedToken, err := v.getTokenForPolicy(opt.Policies, poduid)
 	if err != nil {
 		return flexvolume.Fail(fmt.Sprintf("Couldn't obtain wrapped token (for policies %v): %v", opt.Policies, err))
 	}
@@ -101,15 +108,20 @@ func (v vaultSecretFlexVolume) Unmount(dir string) flexvolume.Response {
 }
 
 // Get a wrapped token from Vault scoped with given policy
-func (v vaultSecretFlexVolume) getTokenForPolicy(policies []string) (*vaultapi.SecretWrapInfo, error) {
+func (v vaultSecretFlexVolume) getTokenForPolicy(policies []string, poduid string) (*vaultapi.SecretWrapInfo, error) {
 
 	client, err := v.createVaultClient()
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't create vault client: %v", err)
 	}
 
+	metadata := map[string]string{
+		"poduid":  poduid,
+		"creator": "kubernetes-flexvolume-vault-plugin",
+	}
 	req := vaultapi.TokenCreateRequest{
 		Policies: policies,
+		Metadata: metadata,
 	}
 
 	wrapped, err := client.Auth().Token().Create(&req)

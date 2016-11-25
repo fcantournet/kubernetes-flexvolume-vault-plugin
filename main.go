@@ -75,6 +75,11 @@ func (v vaultSecretFlexVolume) Mount(dir string, dev string, opts interface{}) f
 		return flexvolume.Fail(fmt.Sprintf("Missing policies under %v in %v:", "vault/policies", opts))
 	}
 
+	for _, s := range opt.Policies {
+		if s == "root" {
+			return flexvolume.Fail("Cannot create token for policy: root")
+		}
+	}
 
 	poduidreg := regexp.MustCompile("[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{8}")
 	poduid := poduidreg.FindString(dir)

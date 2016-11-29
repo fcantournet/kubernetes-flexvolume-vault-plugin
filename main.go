@@ -140,7 +140,7 @@ func insertWrappedTokenInVolume(wrapped *vaultapi.SecretWrapInfo, dir string, to
 	if err != nil {
 		return fmt.Errorf("Failed to mkdir %v: %v", dir, err)
 	}
-	if err = mountVaultTmpFsAt(dir); err != nil {
+	if err = mountTmpfsAt(dir); err != nil {
 		return err
 	}
 
@@ -208,9 +208,9 @@ func cleanup(dir string) error {
 	return nil
 }
 
-// mountVaultTmpFsAt mounts a tmpfs filesystem at the given path
+// mountTmpfsAt mounts a tmpfs filesystem at the given path
 // this doesn't take care of setting the permission on the path.
-func mountVaultTmpFsAt(dir string) error {
+func mountTmpfsAt(dir string) error {
 	var flags uintptr
 	flags = syscall.MS_NOATIME | syscall.MS_SILENT
 	flags |= syscall.MS_NODEV | syscall.MS_NOEXEC | syscall.MS_NOSUID

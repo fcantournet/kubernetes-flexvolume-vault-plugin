@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -14,20 +12,25 @@ import (
 	"syscall"
 
 	"github.com/fcantournet/kubernetes-flexvolume-vault-plugin/flexvolume"
+	"github.com/fcantournet/kubernetes-flexvolume-vault-plugin/vault"
+
 	vaultapi "github.com/hashicorp/vault/api"
 )
 
 const envGeneratorTokenPath = "VAULTTMPFS_GENERATOR_TOKEN_PATH"
 const envTokenFileName = "VAULTTMPFS_TOKEN_FILENAME"
+const envRoleName = "VAULTTMPFS_ROLE_NAME"
 
 const defaultTokenFilename = "vault-token"
 const defaultGeneratorTokenPath = "/etc/kubernetes/vaulttoken"
+const defaultRoleName = "applications"
 
 // vaultSecretFlexVolume implement the flexvolume interface
 // the struct tags are for envconfig
 type vaultSecretFlexVolume struct {
 	GeneratorTokenPath string
 	TokenFilename      string
+	RoleName           string
 }
 
 // VaultTmpfsOptions is the struct that should be unmarshaled from the json send by the kubelet
@@ -74,21 +77,15 @@ func (v vaultSecretFlexVolume) Mount(dir string, dev string, opts interface{}) f
 		return flexvolume.Fail(fmt.Sprintf("Missing policies under %v in %v:", "vault/policies", opts))
 	}
 
-	for _, s := range opt.Policies {
-		if s == "root" {
-			return flexvolume.Fail("Cannot create token for policy: root")
-		}
-	}
-
 	poduidreg := regexp.MustCompile("[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{8}")
 	poduid := poduidreg.FindString(dir)
 	if poduid == "" {
 		return flexvolume.Fail(fmt.Sprintf("Couldn't extract poduid from path %v", dir))
 	}
 
-	wrappedToken, err := v.getTokenForPolicy(opt.Policies, poduid)
+	wrappedToken, err := v.GetWrappedToken(opt.Policies, poduid)
 	if err != nil {
-		return flexvolume.Fail(fmt.Sprintf("Couldn't obtain wrapped token (for policies %v): %v", opt.Policies, err))
+		return flexvolume.Fail(fmt.Sprintf("Couldn't obtain token: %v", opt.Policies, err))
 	}
 
 	err = insertWrappedTokenInVolume(wrappedToken, dir, v.TokenFilename)
@@ -111,28 +108,29 @@ func (v vaultSecretFlexVolume) Unmount(dir string) flexvolume.Response {
 	return flexvolume.Succeed(fmt.Sprintf("Unmounted: %v", dir))
 }
 
-// Get a wrapped token from Vault scoped with given policy
-func (v vaultSecretFlexVolume) getTokenForPolicy(policies []string, poduid string) (*vaultapi.SecretWrapInfo, error) {
+func (v vaultSecretFlexVolume) GetWrappedToken(policies []string, poduid string) (*vaultapi.SecretWrapInfo, error) {
 
-	client, err := v.createVaultClient()
+	// Get token with token generator policy
+	token, err := vault.TokenFromFile(v.GeneratorTokenPath)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't read generator token from file %v: %v", v.GeneratorTokenPath, err)
+	}
+
+	// Generate the default config
+	config := vaultapi.DefaultConfig()
+	if err = config.ReadEnvironment(); err != nil {
+		return nil, fmt.Errorf("Failed to get Vault config from env: %v", err)
+	}
+	client, err := vault.CreateVaultClient(config, token)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't create vault client: %v", err)
 	}
 
-	metadata := map[string]string{
-		"poduid":  poduid,
-		"creator": "kubernetes-flexvolume-vault-plugin",
-	}
-	req := vaultapi.TokenCreateRequest{
-		Policies: policies,
-		Metadata: metadata,
-	}
-
-	wrapped, err := client.Auth().Token().Create(&req)
+	wrapped, err := vault.GetTokenForPolicy(client, v.RoleName, policies, poduid)
 	if err != nil {
-		return nil, fmt.Errorf("Couldn't create scoped token for policy %v : %v", req.Policies, err)
+		return nil, err
 	}
-	return wrapped.WrapInfo, nil
+	return wrapped, nil
 }
 
 func insertWrappedTokenInVolume(wrapped *vaultapi.SecretWrapInfo, dir string, tokenfilename string) error {
@@ -219,53 +217,11 @@ func mountTmpfsAt(dir string) error {
 	return os.NewSyscallError("mount", err)
 }
 
-func tokenFromFile(path string) (string, error) {
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	data = bytes.TrimRight(data, "\n")
-	return string(data), nil
-}
-
-func (v vaultSecretFlexVolume) createVaultClient() (*vaultapi.Client, error) {
-
-	// Get token with token generator policy
-	token, err := tokenFromFile(v.GeneratorTokenPath)
-	if err != nil {
-		return nil, fmt.Errorf("Couldn't read generator token from file %v: %v", v.GeneratorTokenPath, err)
-	}
-
-	// Generate the default config
-	vaultConfig := vaultapi.DefaultConfig()
-	if err = vaultConfig.ReadEnvironment(); err != nil {
-		return nil, fmt.Errorf("Failed to get Vault config from env: %v", err)
-	}
-
-	// By default this added the system's CAs
-	err = vaultConfig.ConfigureTLS(&vaultapi.TLSConfig{Insecure: false})
-	if err != nil {
-		log.Fatalf("Failed to configureTLS: %v", err)
-	}
-
-	// Create the client
-	client, err := vaultapi.NewClient(vaultConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create vault cient: %s", err)
-	}
-
-	client.SetToken(token)
-	// The generator token is periodic so we can set the increment to 0
-	// and it will default to the period.
-	client.Auth().Token().RenewSelf(0)
-
-	return client, nil
-}
-
 func main() {
 	vf := vaultSecretFlexVolume{
 		GeneratorTokenPath: defaultGeneratorTokenPath,
 		TokenFilename:      defaultTokenFilename,
+		RoleName:           defaultRoleName,
 	}
 
 	if v, ok := os.LookupEnv(envGeneratorTokenPath); ok {
@@ -273,6 +229,9 @@ func main() {
 	}
 	if v, ok := os.LookupEnv(envTokenFileName); ok {
 		vf.TokenFilename = v
+	}
+	if v, ok := os.LookupEnv(envRoleName); ok {
+		vf.RoleName = v
 	}
 
 	flexvolume.RunPlugin(vf)

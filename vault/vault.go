@@ -27,7 +27,7 @@ func GetTokenForPolicy(vc *vaultapi.Client, role string, policies []string, podu
 	return wrapped.WrapInfo, nil
 }
 
-func CreateVaultClient(config *vaultapi.Config, token string) (*vaultapi.Client, error) {
+func CreateVaultClient(config *vaultapi.Config) (*vaultapi.Client, error) {
 
 	// By default this added the system's CAs
 	err := config.ConfigureTLS(&vaultapi.TLSConfig{Insecure: false})
@@ -40,11 +40,6 @@ func CreateVaultClient(config *vaultapi.Config, token string) (*vaultapi.Client,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create vault cient: %s", err)
 	}
-
-	client.SetToken(token)
-	// The generator token is periodic so we can set the increment to 0
-	// and it will default to the period.
-	client.Auth().Token().RenewSelf(0)
 
 	return client, nil
 }

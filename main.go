@@ -85,7 +85,7 @@ func (v vaultSecretFlexVolume) Mount(dir string, dev string, opts interface{}) f
 
 	wrappedToken, err := v.GetWrappedToken(opt.Policies, poduid)
 	if err != nil {
-		return flexvolume.Fail(fmt.Sprintf("Couldn't obtain token: %v", opt.Policies, err))
+		return flexvolume.Fail(fmt.Sprintf("Couldn't obtain token: %v", err))
 	}
 
 	err = insertWrappedTokenInVolume(wrappedToken, dir, v.TokenFilename)
@@ -121,10 +121,15 @@ func (v vaultSecretFlexVolume) GetWrappedToken(policies []string, poduid string)
 	if err = config.ReadEnvironment(); err != nil {
 		return nil, fmt.Errorf("Failed to get Vault config from env: %v", err)
 	}
-	client, err := vault.CreateVaultClient(config, token)
+	client, err := vault.CreateVaultClient(config)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't create vault client: %v", err)
 	}
+
+	client.SetToken(token)
+	// The generator token is periodic so we can set the increment to 0
+	// and it will default to the period.
+	client.Auth().Token().RenewSelf(0)
 
 	wrapped, err := vault.GetTokenForPolicy(client, v.RoleName, policies, poduid)
 	if err != nil {

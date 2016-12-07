@@ -1,5 +1,5 @@
-hash: 739846da66fe5bc3bf80ac1556ae223c1a5b858b8c93d8937f06a0f210208f7d
-updated: 2016-11-25T10:52:37.703621264+01:00
+hash: a5c5692acbd3e35d5a0158c53039c02c5b8de4a6d7db7eab70ee5ae1cd06ac4a
+updated: 2016-12-07T11:21:01.662779114+01:00
 imports:
 - name: github.com/fatih/structs
   version: dc3312cb1a4513a366c4c9e622ad55c32df12ed3
@@ -12,7 +12,7 @@ imports:
 - name: github.com/hashicorp/go-rootcerts
   version: 6bb64b370b90e7ef1fa532be9e591a81c3493e00
 - name: github.com/hashicorp/hcl
-  version: f74cf8281543a0797d7b4ab7d88e76e7ba125308
+  version: 7cb7455c285ca3bf3362aa4ba6a06a6d6f5c3ba0
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -23,15 +23,27 @@ imports:
   - json/scanner
   - json/token
 - name: github.com/hashicorp/vault
-  version: 22619b6786724c8eca5340a63395bf3058e1e3f7
+  version: 27aff4397f6fe6cf741fbc967adf863347c0beaf
   subpackages:
   - api
   - helper/compressutil
   - helper/jsonutil
+- name: github.com/mattn/go-isatty
+  version: 30a891c33c7cde7b02a981314b4228ec99380cca
 - name: github.com/mitchellh/go-homedir
   version: 756f7b183b7ab78acdbbee5c7f392838ed459dda
 - name: github.com/mitchellh/mapstructure
   version: f3009df150dadf309fdee4a54ed65c124afad715
 - name: github.com/sethgrid/pester
   version: 2a102734c18c43c74fd0664e06cd414cf9602b93
+- name: github.com/Songmu/prompter
+  version: b5721e8d556682bcef33262731d98a39dee14dc4
+- name: golang.org/x/crypto
+  version: 3f77d695175f990a2967385c493939f380ee40a3
+  subpackages:
+  - ssh/terminal
+- name: golang.org/x/sys
+  version: 8f0908ab3b2457e2e15403d3697c9ef5cb4b57a9
+  subpackages:
+  - unix
 testImports: []

@@ -4,3 +4,5 @@ import:
   version: ^0.6.2
   subpackages:
   - api
+- package: github.com/Songmu/prompter
+  version: ^0.1.0

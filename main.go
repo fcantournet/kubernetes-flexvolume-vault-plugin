@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -237,6 +238,14 @@ func main() {
 	}
 	if v, ok := os.LookupEnv(envRoleName); ok {
 		vf.RoleName = v
+	}
+
+	if len(os.Args) == 2 && os.Args[1] == "bootstrap" {
+		if err := Bootstrap(vf.GeneratorTokenPath); err != nil {
+			log.Fatal(err)
+		}
+		log.Println("Done !")
+		os.Exit(0)
 	}
 
 	flexvolume.RunPlugin(vf)

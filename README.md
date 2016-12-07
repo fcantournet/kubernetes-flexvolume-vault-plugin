@@ -80,3 +80,9 @@ Additionally we have variables to configure settings external to vault. These ar
 | `VAULT_TLS_SERVER_NAME`           | ""                         | If set, use the given name as the SNI host when connecting via TLS.                                                                           |
 | `VAULT_WRAPP_TTL`                 | 5m                         | TTL of the wrapped Token inserted in the volume.                                                                                              |
 | `VAULT_MAX_RETRY`                 | 2                          | The maximum number of retries when a 5xx error code is encountered. Default is 2, for three total tries; set to 0 or less to disable retrying |
+
+
+# Bootstrap
+
+There is an helper command to bootstrap a node with a token for the token generator policy. This requires that you have vault LDAP auth activated.
+just run : `

@@ -247,6 +247,12 @@ func main() {
 		log.Println("Done !")
 		os.Exit(0)
 	}
+	if len(os.Args) == 2 && os.Args[1] == "renew-token" {
+		if err := renewtoken(vf.GeneratorTokenPath); err != nil {
+			log.Fatal(err)
+		}
+		os.Exit(0)
+	}
 
 	flexvolume.RunPlugin(vf)
 }

@@ -15,16 +15,6 @@ import (
 
 func Bootstrap(defaultpath string) error {
 
-	username := prompter.Prompt("LDAP username", "")
-	if username == "" {
-		return fmt.Errorf("Cannot read LDAP username")
-	}
-
-	password := prompter.Password("LDAP password")
-	if password == "" {
-		return fmt.Errorf("Cannot read LDAP password")
-	}
-
 	config := vaultapi.DefaultConfig()
 	if err := config.ReadEnvironment(); err != nil {
 		return fmt.Errorf("Cannot get config from env: %v", err)
@@ -34,18 +24,14 @@ func Bootstrap(defaultpath string) error {
 		return fmt.Errorf("Cannot create vault client: %v", err)
 	}
 
-	fmt.Println("Authentication to vault...")
-	path := fmt.Sprintf("auth/ldap/login/%s", username)
-	data := map[string]interface{}{"password": password}
-	secret, err := client.Logical().Write(path, data)
-	if err != nil {
-		return fmt.Errorf("Cannot authenticate with ldap credentials: %v", err)
-	}
-	if secret == nil {
-		return fmt.Errorf("Empty response from ldap for username: %v", username)
+	var username string
+	// if VAULT_TOKEN isn't set we fall-back to ldap login.
+	if client.Token() == "" {
+		if username, err = loginViaLdap(client); err != nil {
+			return err
+		}
 	}
 
-	client.SetToken(secret.Auth.ClientToken)
 	hostname, err := os.Hostname()
 	if err != nil {
 		bytesHostname, err := exec.Command("hostname", "-f").Output()
@@ -58,7 +44,9 @@ func Bootstrap(defaultpath string) error {
 	metadata := map[string]string{
 		"applications": "kubernetes-flexvolume-vault-plugin",
 		"node":         hostname,
-		"creator":      username,
+	}
+	if username != "" {
+		metadata["creator"] = username
 	}
 
 	policy := prompter.Prompt("Policy for generating tokens", "applications_token_creator")
@@ -69,10 +57,11 @@ func Bootstrap(defaultpath string) error {
 	req := vaultapi.TokenCreateRequest{
 		Policies: []string{policy},
 		Metadata: metadata,
+		Period:   "24h",
 	}
 
 	fmt.Println("Getting scoped token...")
-	secret, err = client.Auth().Token().CreateOrphan(&req)
+	secret, err := client.Auth().Token().CreateOrphan(&req)
 	if err != nil {
 		return fmt.Errorf("Cannot get token: %v", err)
 	}
@@ -93,6 +82,33 @@ func Bootstrap(defaultpath string) error {
 	}
 	return nil
 }
+
+func loginViaLdap(client *vaultapi.Client) (string, error) {
+	username := prompter.Prompt("LDAP username", "")
+	if username == "" {
+		return "", fmt.Errorf("Cannot read LDAP username")
+	}
+
+	password := prompter.Password("LDAP password")
+	if password == "" {
+		return "", fmt.Errorf("Cannot read LDAP password")
+	}
+
+	fmt.Println("Authentication to vault...")
+	path := fmt.Sprintf("auth/ldap/login/%s", username)
+	data := map[string]interface{}{"password": password}
+	secret, err := client.Logical().Write(path, data)
+	if err != nil {
+		return "", fmt.Errorf("Cannot authenticate with ldap credentials: %v", err)
+	}
+	if secret == nil {
+		return "", fmt.Errorf("Empty response from ldap for username: %v", username)
+	}
+
+	client.SetToken(secret.Auth.ClientToken)
+	return username, nil
+}
+
 func renewtoken(tokenpath string) error {
 	token, err := vault.TokenFromFile(tokenpath)
 	if err != nil {

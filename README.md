@@ -85,4 +85,6 @@ Additionally we have variables to configure settings external to vault. These ar
 # Bootstrap
 
 There is an helper command to bootstrap a node with a token for the token generator policy. This requires that you have vault LDAP auth activated.
-just run : `
+just run : `vaulttmpfs bootstrap`
+
+You need to have VAULT_ADDR set as an environment variable

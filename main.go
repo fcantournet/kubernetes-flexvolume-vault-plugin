@@ -34,17 +34,6 @@ type vaultSecretFlexVolume struct {
 	RoleName           string
 }
 
-// VaultTmpfsOptions is the struct that should be unmarshaled from the json send by the kubelet
-// Corresponds to the arbitrary payload that we can specify to the kubelet to send
-// in the yaml defining the pod/deployment
-type VaultTmpfsOptions struct {
-	Policies string `json:"vault/policies"`
-}
-
-func (v vaultSecretFlexVolume) NewOptions() interface{} {
-	return &VaultTmpfsOptions{}
-}
-
 // Init is a no-op here but necessary to satisfy the interface
 func (v vaultSecretFlexVolume) Init() flexvolume.Response {
 	return flexvolume.Succeed("")
@@ -61,7 +50,16 @@ func (v vaultSecretFlexVolume) Detach(arg string) flexvolume.Response {
 }
 
 // Mount create the tmpfs volume and mounts it @ dir
-func (v vaultSecretFlexVolume) Mount(dir string, dev string, opts interface{}) flexvolume.Response {
+func (v vaultSecretFlexVolume) Mount(dir string, dev string, options map[string]string) flexvolume.Response {
+
+	stringPolicies, ok := options["vault/policies"]
+	if !ok {
+		return flexvolume.Fail(fmt.Sprintf("Missing policies under %v in %v:", "vault/policies", options))
+	}
+	policies := strings.Split(strings.Replace(stringPolicies, " ", "", -1), ",")
+	if len(policies) == 0 {
+		return flexvolume.Fail(fmt.Sprintf("Empty policies under %v in %v:", "vault/policies", options))
+	}
 
 	// Short circuit if already mounted.
 	mounted, err := ismounted(dir)
@@ -72,18 +70,12 @@ func (v vaultSecretFlexVolume) Mount(dir string, dev string, opts interface{}) f
 		return flexvolume.Succeed("Already mounted")
 	}
 
-	opt := opts.(*VaultTmpfsOptions) // casting because golang sucks
-
-	if len(opt.Policies) == 0 {
-		return flexvolume.Fail(fmt.Sprintf("Missing or empty policies under %v in %v:", "vault/policies", opts))
-	}
-
 	poduidreg := regexp.MustCompile("[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{8}")
 	poduid := poduidreg.FindString(dir)
 	if poduid == "" {
 		return flexvolume.Fail(fmt.Sprintf("Couldn't extract poduid from path %v", dir))
 	}
-	policies := strings.Split(strings.Replace(opt.Policies, " ", "", -1), ",")
+
 	wrappedToken, err := v.GetWrappedToken(policies, poduid)
 	if err != nil {
 		return flexvolume.Fail(fmt.Sprintf("Couldn't obtain token: %v", err))

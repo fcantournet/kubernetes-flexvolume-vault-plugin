@@ -29,11 +29,10 @@ type DefaultOptions struct {
 }
 
 type FlexVolumePlugin interface {
-	NewOptions() interface{}
 	Init() Response
 	Attach(opt interface{}) Response
 	Detach(device string) Response
-	Mount(mountDir string, device string, opt interface{}) Response
+	Mount(mountDir string, device string, opt map[string]string) Response
 	Unmount(mountDir string) Response
 }
 
@@ -79,9 +78,9 @@ func RunPlugin(plugin FlexVolumePlugin) {
 			finish(Fail(fmt.Sprintf("attach expected exactly 3 arguments; got %v", os.Args)))
 		}
 
-		opt := plugin.NewOptions()
-		if err := json.Unmarshal([]byte(os.Args[2]), opt); err != nil {
-			finish(Fail(fmt.Sprintf("could not parse options for attach; got %v", os.Args[2])))
+		var opt map[string]string
+		if err := json.Unmarshal([]byte(os.Args[2]), &opt); err != nil {
+			finish(Fail(fmt.Sprintf("could not parse options for attach; input:%v err: %v", os.Args[2], err)))
 		}
 
 		finish(plugin.Attach(opt))
@@ -102,8 +101,8 @@ func RunPlugin(plugin FlexVolumePlugin) {
 		mountDir := os.Args[2]
 		device := os.Args[3]
 
-		opt := plugin.NewOptions()
-		if err := json.Unmarshal([]byte(os.Args[4]), opt); err != nil {
+		var opt map[string]string
+		if err := json.Unmarshal([]byte(os.Args[4]), &opt); err != nil {
 			finish(Fail(fmt.Sprintf("could not parse options for attach; got %v", os.Args[2])))
 		}
 

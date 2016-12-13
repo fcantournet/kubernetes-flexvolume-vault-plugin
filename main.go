@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"path"
 	"regexp"
 	"strings"
@@ -165,24 +164,16 @@ func insertWrappedTokenInVolume(wrapped *vaultapi.SecretWrapInfo, dir string, to
 }
 
 // TODO: when findmnt is in 2.27+ use json output instead !
+// FIXME: moving temporarily to simple check of file existence.
 func ismounted(dir string) (bool, error) {
-
-	out, err := exec.Command("findmnt", "-n", "-o", "TARGET", "--raw", dir).CombinedOutput()
+	_, err := os.Stat(dir)
 	if err == nil {
 		return true, nil
 	}
-	if len(out) != 0 { // actual error
-		return false, fmt.Errorf("Failed to run findmnt: %v", err)
+	if os.IsNotExist(err) {
+		return false, nil
 	}
-	if exiterr, ok := err.(*exec.ExitError); ok {
-		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-			if status == 1 {
-				return false, nil
-			}
-		}
-	}
-	// TODO: we shouldn't be here findmnt fucked up and didn't output anything.
-	return false, fmt.Errorf("unhandled error from findmnt: %v", err)
+	return false, fmt.Errorf("Failed to run os.Stat: %v", err)
 }
 
 func cleanup(dir string) error {

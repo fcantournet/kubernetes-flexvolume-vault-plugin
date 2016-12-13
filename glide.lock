@@ -1,5 +1,5 @@
 hash: a5c5692acbd3e35d5a0158c53039c02c5b8de4a6d7db7eab70ee5ae1cd06ac4a
-updated: 2016-12-07T11:21:01.662779114+01:00
+updated: 2016-12-13T20:47:45.835441749+01:00
 imports:
 - name: github.com/fatih/structs
   version: dc3312cb1a4513a366c4c9e622ad55c32df12ed3
@@ -39,7 +39,7 @@ imports:
 - name: github.com/Songmu/prompter
   version: b5721e8d556682bcef33262731d98a39dee14dc4
 - name: golang.org/x/crypto
-  version: 3f77d695175f990a2967385c493939f380ee40a3
+  version: 9a6f0a01987842989747adff311d80750ba25530
   subpackages:
   - ssh/terminal
 - name: golang.org/x/sys

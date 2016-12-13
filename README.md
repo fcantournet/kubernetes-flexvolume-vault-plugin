@@ -75,10 +75,10 @@ Additionally we have variables to configure settings external to vault. These ar
 |-----------------------------------|----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | `VAULTTMPFS_GENERATOR_TOKEN_PATH` | /etc/kubernetes/vaulttoken | The path to load the token used by this service from.                                                                                         |
 | `VAULTTMPFS_TOKEN_FILENAME`       | vault-token                | The name of the file in the created volume that will contain the wrapped token                                                                |
-| `VAULTTMPFS_ROLE_NAME`            | applications               | The role in auth/token against which the tokens will be created                                                                                                                          |
+| `VAULTTMPFS_ROLE_NAME`            | applications               | The role in auth/token against which the tokens will be created                                                                               |
 | `VAULT_ADDR`                      | https://127.0.0.1:8200     | The vault server URL                                                                                                                          |
 | `VAULT_TLS_SERVER_NAME`           | ""                         | If set, use the given name as the SNI host when connecting via TLS.                                                                           |
-| `VAULT_WRAPP_TTL`                 | 5m                         | TTL of the wrapped Token inserted in the volume.                                                                                              |
+| `VAULT_WRAP_TTL`                  | 5m                         | TTL of the wrapped Token inserted in the volume.                                                                                              |
 | `VAULT_MAX_RETRY`                 | 2                          | The maximum number of retries when a 5xx error code is encountered. Default is 2, for three total tries; set to 0 or less to disable retrying |
 
 

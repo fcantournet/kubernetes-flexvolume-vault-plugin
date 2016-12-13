@@ -24,6 +24,9 @@ func GetTokenForPolicy(vc *vaultapi.Client, role string, policies []string, podu
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't create scoped token for policies %v : %v", req.Policies, err)
 	}
+	if wrapped.WrapInfo == nil {
+		return wrapped.WrapInfo, fmt.Errorf("got unwrapped token ! Use VAULT_WRAP_TTL")
+	}
 	return wrapped.WrapInfo, nil
 }
 

@@ -38,7 +38,7 @@ type vaultSecretFlexVolume struct {
 // Corresponds to the arbitrary payload that we can specify to the kubelet to send
 // in the yaml defining the pod/deployment
 type VaultTmpfsOptions struct {
-	Policies []string `json:"vault/policies"`
+	Policies string `json:"vault/policies"`
 }
 
 func (v vaultSecretFlexVolume) NewOptions() interface{} {
@@ -75,7 +75,7 @@ func (v vaultSecretFlexVolume) Mount(dir string, dev string, opts interface{}) f
 	opt := opts.(*VaultTmpfsOptions) // casting because golang sucks
 
 	if len(opt.Policies) == 0 {
-		return flexvolume.Fail(fmt.Sprintf("Missing policies under %v in %v:", "vault/policies", opts))
+		return flexvolume.Fail(fmt.Sprintf("Missing or empty policies under %v in %v:", "vault/policies", opts))
 	}
 
 	poduidreg := regexp.MustCompile("[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{8}")
@@ -83,8 +83,8 @@ func (v vaultSecretFlexVolume) Mount(dir string, dev string, opts interface{}) f
 	if poduid == "" {
 		return flexvolume.Fail(fmt.Sprintf("Couldn't extract poduid from path %v", dir))
 	}
-
-	wrappedToken, err := v.GetWrappedToken(opt.Policies, poduid)
+	policies := strings.Split(strings.Replace(opt.Policies, " ", "", -1), ",")
+	wrappedToken, err := v.GetWrappedToken(policies, poduid)
 	if err != nil {
 		return flexvolume.Fail(fmt.Sprintf("Couldn't obtain token: %v", err))
 	}

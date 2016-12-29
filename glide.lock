@@ -1,5 +1,5 @@
-hash: a5c5692acbd3e35d5a0158c53039c02c5b8de4a6d7db7eab70ee5ae1cd06ac4a
-updated: 2016-12-13T20:47:45.835441749+01:00
+hash: b324f20c33cc2c2c005998bec8736adcbb63829e59958c74f77606aa6aa446b0
+updated: 2016-12-29T12:35:19.889730449+01:00
 imports:
 - name: github.com/fatih/structs
   version: dc3312cb1a4513a366c4c9e622ad55c32df12ed3
@@ -23,7 +23,7 @@ imports:
   - json/scanner
   - json/token
 - name: github.com/hashicorp/vault
-  version: 27aff4397f6fe6cf741fbc967adf863347c0beaf
+  version: f4adc7fa960ed8e828f94bc6785bcdbae8d1b263
   subpackages:
   - api
   - helper/compressutil
@@ -39,7 +39,7 @@ imports:
 - name: github.com/Songmu/prompter
   version: b5721e8d556682bcef33262731d98a39dee14dc4
 - name: golang.org/x/crypto
-  version: 9a6f0a01987842989747adff311d80750ba25530
+  version: f6b343c37ca80bfa8ea539da67a0b621f84fab1d
   subpackages:
   - ssh/terminal
 - name: golang.org/x/sys

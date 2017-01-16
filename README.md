@@ -2,13 +2,13 @@
 
 # What is this ?
 
-This project is an implementation of the flexvolume kubernetes plugin to inject a scoped vault token inside pods at startup so they can get their secrets.
+This project is an implementation of the flexvolume kubernetes plugin to inject a scoped vault token inside pods at startup so they can get their secrets, via consul-template for instance.
 
 # How do I build it ?
 
 Just run `make` ( or ` go build -o whatever .` where `whatever` is the name you want the binary to have )
 By default the name of the binary is `vaulttmpfs`
-All dependencies are versionned under `/vendor` with glide and commited.
+All dependencies are vendored under `/vendor` with glide and commited, so you can build with just the go toolchain..
 
 You can also `go get github.com/fcantournet/kubernetes-flexvolume-vault-plugin`
 
@@ -17,7 +17,7 @@ You can also `go get github.com/fcantournet/kubernetes-flexvolume-vault-plugin`
 It creates a tmpfs volume and mounts it at a path specify by the kubelet.
 Inside the volume are 2 files with a configurable _basename_:
 - `basename` that contains the raw wrapped vault token.
-- `basename.json` that contains the full response from vault at token creation time (includes metadata)
+- `basename.json` that contains the full response from vault at token creation time (includes some vault metadata)
 
 The token is scoped to a policy defined by a parameter provided to the plugin via stdin by the kubelet (cf. flexvolume documentation)
 
@@ -84,7 +84,8 @@ Additionally we have variables to configure settings external to vault. These ar
 
 # Bootstrap
 
-There is an helper command to bootstrap a node with a token for the token generator policy. This requires that you have vault LDAP auth activated.
+There is an helper command to bootstrap a node with a token for the token generator policy.
+It supports 2 authentification methods : interactive LDAP auth (needs to be configured and activated in vault), or that you have (root) `VAULT_TOKEN` set in the environment.
 just run : `vaulttmpfs bootstrap`
 
 You need to have VAULT_ADDR set as an environment variable

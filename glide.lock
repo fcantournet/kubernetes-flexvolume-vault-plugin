@@ -1,18 +1,18 @@
-hash: b324f20c33cc2c2c005998bec8736adcbb63829e59958c74f77606aa6aa446b0
-updated: 2016-12-29T12:35:19.889730449+01:00
+hash: 64ac05248866137e6b20691cf9c8ad4f99326607f2675fb864931c446aa92e45
+updated: 2017-05-15T17:00:52.600587627+02:00
 imports:
 - name: github.com/fatih/structs
-  version: dc3312cb1a4513a366c4c9e622ad55c32df12ed3
+  version: a720dfa8df582c51dee1b36feabb906bde1588bd
 - name: github.com/hashicorp/errwrap
   version: 7554cd9344cec97297fa6649b055a8c98c2a1e55
 - name: github.com/hashicorp/go-cleanhttp
-  version: ad28ea4487f05916463e2423a55166280e8254b5
+  version: 3573b8b52aa7b37b9358d966a898feb387f62437
 - name: github.com/hashicorp/go-multierror
-  version: 8484912a3b9987857bac52e0c5fec2b95f419628
+  version: ed905158d87462226a13fe39ddf685ea65f1c11f
 - name: github.com/hashicorp/go-rootcerts
   version: 6bb64b370b90e7ef1fa532be9e591a81c3493e00
 - name: github.com/hashicorp/hcl
-  version: 7cb7455c285ca3bf3362aa4ba6a06a6d6f5c3ba0
+  version: 392dba7d905ed5d04a5794ba89f558b27e2ba1ca
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -23,27 +23,34 @@ imports:
   - json/scanner
   - json/token
 - name: github.com/hashicorp/vault
-  version: f4adc7fa960ed8e828f94bc6785bcdbae8d1b263
+  version: d28dd5a018294562dbc9a18c95554d52b5d12390
   subpackages:
   - api
   - helper/compressutil
   - helper/jsonutil
 - name: github.com/mattn/go-isatty
-  version: 30a891c33c7cde7b02a981314b4228ec99380cca
+  version: fc9e8d8ef48496124e79ae0df75490096eccf6fe
 - name: github.com/mitchellh/go-homedir
-  version: 756f7b183b7ab78acdbbee5c7f392838ed459dda
+  version: b8bc1bf767474819792c23f32d8286a45736f1c6
 - name: github.com/mitchellh/mapstructure
-  version: f3009df150dadf309fdee4a54ed65c124afad715
+  version: cc8532a8e9a55ea36402aa21efdf403a60d34096
 - name: github.com/sethgrid/pester
-  version: 2a102734c18c43c74fd0664e06cd414cf9602b93
+  version: 4f4c0a67b6496764028e1ab9fd8dfb630282ed2f
 - name: github.com/Songmu/prompter
   version: b5721e8d556682bcef33262731d98a39dee14dc4
 - name: golang.org/x/crypto
-  version: f6b343c37ca80bfa8ea539da67a0b621f84fab1d
+  version: ab89591268e0c8b748cbe4047b00197516011af5
   subpackages:
   - ssh/terminal
+- name: golang.org/x/net
+  version: f2499483f923065a842d38eb4c7f1927e6fc6e6d
+  subpackages:
+  - http2
+  - http2/hpack
+  - idna
+  - lex/httplex
 - name: golang.org/x/sys
-  version: 8f0908ab3b2457e2e15403d3697c9ef5cb4b57a9
+  version: 1e99a4f9d247b28c670884b9a8d6801f39a47b77
   subpackages:
   - unix
 testImports: []

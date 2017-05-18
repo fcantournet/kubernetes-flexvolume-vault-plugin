@@ -1,20 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
-	"path"
 	"regexp"
 	"strings"
-	"syscall"
 
 	"github.com/fcantournet/kubernetes-flexvolume-vault-plugin/flexvolume"
 	"github.com/fcantournet/kubernetes-flexvolume-vault-plugin/vault"
-
-	vaultapi "github.com/hashicorp/vault/api"
 )
 
 const envGeneratorTokenPath = "VAULTTMPFS_GENERATOR_TOKEN_PATH"
@@ -60,13 +54,11 @@ func (v vaultSecretFlexVolume) Mount(dir string, dev string, options map[string]
 		return flexvolume.Fail(fmt.Sprintf("Empty policies under %v in %v:", "vault/policies", options))
 	}
 
-	// Short circuit if already mounted.
-	mounted, err := ismounted(dir)
-	if err != nil {
-		return flexvolume.Fail(fmt.Sprintf("Couldn't determine is %v already mounted: %v", dir, err))
-	}
-	if mounted {
-		return flexvolume.Succeed("Already mounted")
+	// By default we do not unwrap the token
+	unwraptoken := false
+	unwraptokenstring, ok := options["vault/unwrap"]
+	if ok && strings.Compare(strings.ToLower(unwraptokenstring), "true") == 0 {
+		unwraptoken = true
 	}
 
 	poduidreg := regexp.MustCompile("[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{8}")
@@ -75,12 +67,17 @@ func (v vaultSecretFlexVolume) Mount(dir string, dev string, options map[string]
 		return flexvolume.Fail(fmt.Sprintf("Couldn't extract poduid from path %v", dir))
 	}
 
-	wrappedToken, err := v.GetWrappedToken(policies, poduid)
+	client, err := vault.InitVaultClient(v.GeneratorTokenPath, v.RoleName)
+	if err != nil {
+		return flexvolume.Fail(err.Error())
+	}
+
+	token, metadata, err := client.GetTokenData(policies, poduid, unwraptoken)
 	if err != nil {
 		return flexvolume.Fail(fmt.Sprintf("Couldn't obtain token: %v", err))
 	}
 
-	err = insertWrappedTokenInVolume(wrappedToken, dir, v.TokenFilename)
+	err = writeTokenData(token, metadata, dir, v.TokenFilename)
 	if err != nil {
 		err2 := cleanup(dir)
 		if err2 != nil {
@@ -98,112 +95,6 @@ func (v vaultSecretFlexVolume) Unmount(dir string) flexvolume.Response {
 		return flexvolume.Fail(fmt.Sprintf("Failed to Unmount: %v", err))
 	}
 	return flexvolume.Succeed(fmt.Sprintf("Unmounted: %v", dir))
-}
-
-func (v vaultSecretFlexVolume) GetWrappedToken(policies []string, poduid string) (*vaultapi.SecretWrapInfo, error) {
-
-	// Get token with token generator policy
-	token, err := vault.TokenFromFile(v.GeneratorTokenPath)
-	if err != nil {
-		return nil, fmt.Errorf("Couldn't read generator token from file %v: %v", v.GeneratorTokenPath, err)
-	}
-
-	// Generate the default config
-	config := vaultapi.DefaultConfig()
-	if err = config.ReadEnvironment(); err != nil {
-		return nil, fmt.Errorf("Failed to get Vault config from env: %v", err)
-	}
-	client, err := vault.CreateVaultClient(config)
-	if err != nil {
-		return nil, fmt.Errorf("Couldn't create vault client: %v", err)
-	}
-
-	client.SetToken(token)
-	// The generator token is periodic so we can set the increment to 0
-	// and it will default to the period.
-	client.Auth().Token().RenewSelf(0)
-
-	wrapped, err := vault.GetTokenForPolicy(client, v.RoleName, policies, poduid)
-	if err != nil {
-		return nil, err
-	}
-	return wrapped, nil
-}
-
-func insertWrappedTokenInVolume(wrapped *vaultapi.SecretWrapInfo, dir string, tokenfilename string) error {
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		return fmt.Errorf("Failed to mkdir %v: %v", dir, err)
-	}
-	if err = mountTmpfsAt(dir); err != nil {
-		return err
-	}
-
-	tokenpath := path.Join(dir, tokenfilename)
-	fulljsonpath := path.Join(dir, strings.Join([]string{tokenfilename, ".json"}, ""))
-	fulljson, err := json.Marshal(wrapped)
-	if err != nil {
-		return fmt.Errorf("Couldn't marshal vault response: %v", err)
-	}
-
-	err = ioutil.WriteFile(tokenpath, []byte(strings.TrimSpace(wrapped.Token)), 0644)
-	if err != nil {
-		return err
-	}
-	err = os.Chmod(tokenpath, 0644)
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile(fulljsonpath, fulljson, 0644)
-	if err != nil {
-		return err
-	}
-	err = os.Chmod(fulljsonpath, 0644)
-	return err
-}
-
-// TODO: when findmnt is in 2.27+ use json output instead !
-// FIXME: moving temporarily to simple check of file existence.
-func ismounted(dir string) (bool, error) {
-	_, err := os.Stat(dir)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, fmt.Errorf("Failed to run os.Stat: %v", err)
-}
-
-func cleanup(dir string) error {
-	mounted, err := ismounted(dir)
-	if err != nil {
-		return fmt.Errorf("can't determine if %v is mounted: %v", dir, err)
-	}
-	if mounted {
-		err := syscall.Unmount(dir, 0)
-		if err != nil {
-			return fmt.Errorf("Failed to Unmount %v: %v", dir, err)
-		}
-	}
-	// Good Guy RemoveAll does nothing is path doesn't exist and returns nil error :)
-	err = os.RemoveAll(dir)
-	if err != nil {
-		return fmt.Errorf("Failed to remove the directory %v: %v", dir, err)
-	}
-	return nil
-}
-
-// mountTmpfsAt mounts a tmpfs filesystem at the given path
-// this doesn't take care of setting the permission on the path.
-func mountTmpfsAt(dir string) error {
-	var flags uintptr
-	flags = syscall.MS_NOATIME | syscall.MS_SILENT
-	flags |= syscall.MS_NODEV | syscall.MS_NOEXEC | syscall.MS_NOSUID
-	options := "size=1M"
-	err := syscall.Mount("tmpfs", dir, "tmpfs", flags, options)
-	return os.NewSyscallError("mount", err)
 }
 
 func main() {

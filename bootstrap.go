@@ -15,11 +15,7 @@ import (
 
 func Bootstrap(defaultpath string) error {
 
-	config := vaultapi.DefaultConfig()
-	if err := config.ReadEnvironment(); err != nil {
-		return fmt.Errorf("Cannot get config from env: %v", err)
-	}
-	client, err := vault.CreateVaultClient(config)
+	client, err := vault.CreateVaultClient()
 	if err != nil {
 		return fmt.Errorf("Cannot create vault client: %v", err)
 	}
@@ -110,21 +106,6 @@ func loginViaLdap(client *vaultapi.Client) (string, error) {
 }
 
 func renewtoken(tokenpath string) error {
-	token, err := vault.TokenFromFile(tokenpath)
-	if err != nil {
-		return err
-	}
-	config := vaultapi.DefaultConfig()
-	if err := config.ReadEnvironment(); err != nil {
-		return fmt.Errorf("Cannot get config from env: %v", err)
-	}
-	client, err := vault.CreateVaultClient(config)
-	if err != nil {
-		return fmt.Errorf("Cannot create vault client: %v", err)
-	}
-	client.SetToken(token)
-	// The generator token is periodic so we can set the increment to 0
-	// and it will default to the period.
-	_, err = client.Auth().Token().RenewSelf(0)
+	_, err := vault.InitVaultClient(tokenpath, "")
 	return err
 }

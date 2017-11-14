@@ -106,6 +106,6 @@ func loginViaLdap(client *vaultapi.Client) (string, error) {
 }
 
 func renewtoken(tokenpath string) error {
-	_, err := vault.InitVaultClient(tokenpath, "")
+	_, err := vault.InitVaultClient(tokenpath)
 	return err
 }

@@ -1,5 +1,11 @@
 [![Build Status](https://travis-ci.org/fcantournet/kubernetes-flexvolume-vault-plugin.svg?branch=master)](https://travis-ci.org/fcantournet/kubernetes-flexvolume-vault-plugin)
 
+
+# STATUS : I am not maintaining this anymore. Cloudwatt is maintaining it here https://github.com/cloudwatt/kubernetes-flexvolume-vault-plugin
+
+Generally speaking I strongly suggest you move away from this approach now that Vault has a built-in kubernetes authentification backend. https://www.vaultproject.io/docs/auth/kubernetes.html
+
+
 # What is this ?
 
 This project is an implementation of the flexvolume kubernetes plugin to inject a scoped vault token inside pods at startup so they can get their secrets, via consul-template for instance.

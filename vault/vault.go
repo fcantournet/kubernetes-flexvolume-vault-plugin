@@ -10,11 +10,10 @@ import (
 )
 
 type Client struct {
-	vc   *vaultapi.Client
-	role string
+	vc *vaultapi.Client
 }
 
-func InitVaultClient(generatortokenpath, role string) (*Client, error) {
+func InitVaultClient(generatortokenpath string) (*Client, error) {
 	token, err := TokenFromFile(generatortokenpath)
 	if err != nil {
 		return nil, err
@@ -30,19 +29,19 @@ func InitVaultClient(generatortokenpath, role string) (*Client, error) {
 	if _, err = vc.Auth().Token().RenewSelf(0); err != nil {
 		return nil, fmt.Errorf("Couldn't renew generator token: %v", err)
 	}
-	return &Client{vc: vc, role: role}, nil
+	return &Client{vc: vc}, nil
 
 }
 
 // Gets token data
-func (c *Client) GetTokenData(policies []string, poduid string, unwrap bool) (string, []byte, error) {
+func (c *Client) GetTokenData(policies []string, poduid string, unwrap bool, role string) (string, []byte, error) {
 
 	if unwrap {
 		// We override the default WrappingLookupFunction which honors the VAULT_WRAP_TTL env variable
 		c.vc.SetWrappingLookupFunc(func(_, _ string) string { return "" })
 	}
 
-	secret, err := c.getTokenForPolicy(policies, poduid)
+	secret, err := c.getTokenForPolicy(policies, poduid, role)
 	if err != nil {
 		return "", []byte{}, err
 	}
@@ -70,7 +69,7 @@ func (c *Client) GetTokenData(policies []string, poduid string, unwrap bool) (st
 }
 
 // GetTokenForPolicy gets a wrapped token from Vault scoped with given policy
-func (c *Client) getTokenForPolicy(policies []string, poduid string) (*vaultapi.Secret, error) {
+func (c *Client) getTokenForPolicy(policies []string, poduid string, role string) (*vaultapi.Secret, error) {
 
 	metadata := map[string]string{
 		"poduid":  poduid,
@@ -81,7 +80,7 @@ func (c *Client) getTokenForPolicy(policies []string, poduid string) (*vaultapi.
 		Metadata: metadata,
 	}
 
-	secret, err := c.vc.Auth().Token().CreateWithRole(&req, c.role)
+	secret, err := c.vc.Auth().Token().CreateWithRole(&req, role)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't create scoped token for policies %v : %v", req.Policies, err)
 	}

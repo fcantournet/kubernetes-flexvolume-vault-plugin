@@ -13,7 +13,7 @@ import (
 
 const envGeneratorTokenPath = "VAULTTMPFS_GENERATOR_TOKEN_PATH"
 const envTokenFileName = "VAULTTMPFS_TOKEN_FILENAME"
-const envRoleName = "VAULTTMPFS_ROLE_NAME"
+const envDefaultRoleName = "VAULTTMPFS_DEFAULT_ROLE_NAME"
 
 const defaultTokenFilename = "vault-token"
 const defaultGeneratorTokenPath = "/etc/kubernetes/vaulttoken"
@@ -24,7 +24,7 @@ const defaultRoleName = "applications"
 type vaultSecretFlexVolume struct {
 	GeneratorTokenPath string
 	TokenFilename      string
-	RoleName           string
+	DefaultRoleName    string
 }
 
 // Init is a no-op here but necessary to satisfy the interface
@@ -45,13 +45,10 @@ func (v vaultSecretFlexVolume) Detach(arg string) flexvolume.Response {
 // Mount create the tmpfs volume and mounts it @ dir
 func (v vaultSecretFlexVolume) Mount(dir string, dev string, options map[string]string) flexvolume.Response {
 
+	policies := []string{""}
 	stringPolicies, ok := options["vault/policies"]
-	if !ok {
-		return flexvolume.Fail(fmt.Sprintf("Missing policies under %v in %v:", "vault/policies", options))
-	}
-	policies := strings.Split(strings.Replace(stringPolicies, " ", "", -1), ",")
-	if len(policies) == 0 {
-		return flexvolume.Fail(fmt.Sprintf("Empty policies under %v in %v:", "vault/policies", options))
+	if ok {
+		policies = strings.Split(strings.Replace(stringPolicies, " ", "", -1), ",")
 	}
 
 	// By default we do not unwrap the token
@@ -61,18 +58,24 @@ func (v vaultSecretFlexVolume) Mount(dir string, dev string, options map[string]
 		unwraptoken = true
 	}
 
+	role := v.DefaultRoleName
+	rolestring, ok := options["vault/role"]
+	if ok {
+		role = rolestring
+	}
+
 	poduidreg := regexp.MustCompile("[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{8}")
 	poduid := poduidreg.FindString(dir)
 	if poduid == "" {
 		return flexvolume.Fail(fmt.Sprintf("Couldn't extract poduid from path %v", dir))
 	}
 
-	client, err := vault.InitVaultClient(v.GeneratorTokenPath, v.RoleName)
+	client, err := vault.InitVaultClient(v.GeneratorTokenPath)
 	if err != nil {
 		return flexvolume.Fail(err.Error())
 	}
 
-	token, metadata, err := client.GetTokenData(policies, poduid, unwraptoken)
+	token, metadata, err := client.GetTokenData(policies, poduid, unwraptoken, role)
 	if err != nil {
 		return flexvolume.Fail(fmt.Sprintf("Couldn't obtain token: %v", err))
 	}
@@ -101,7 +104,7 @@ func main() {
 	vf := vaultSecretFlexVolume{
 		GeneratorTokenPath: defaultGeneratorTokenPath,
 		TokenFilename:      defaultTokenFilename,
-		RoleName:           defaultRoleName,
+		DefaultRoleName:    defaultRoleName,
 	}
 
 	if v, ok := os.LookupEnv(envGeneratorTokenPath); ok {
@@ -110,8 +113,8 @@ func main() {
 	if v, ok := os.LookupEnv(envTokenFileName); ok {
 		vf.TokenFilename = v
 	}
-	if v, ok := os.LookupEnv(envRoleName); ok {
-		vf.RoleName = v
+	if v, ok := os.LookupEnv(envDefaultRoleName); ok {
+		vf.DefaultRoleName = v
 	}
 
 	if len(os.Args) == 2 && os.Args[1] == "bootstrap" {

@@ -1,0 +1,10 @@
+{
+"allowed_policies": "",
+"disallowed_policies":"admin",
+"explicit_max_ttl": 0,
+"name": "applications",
+"orphan": true,
+"path_suffix": "",
+"period": 3600,
+"renewable": true
+}

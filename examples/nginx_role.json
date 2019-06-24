@@ -1,0 +1,10 @@
+{
+"allowed_policies": "nginx",
+"disallowed_policies":"",
+"explicit_max_ttl": 0,
+"name": "nginx_role",
+"orphan": true,
+"path_suffix": "",
+"period": 3600,
+"renewable": true
+}
